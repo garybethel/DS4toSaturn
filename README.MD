@@ -12,12 +12,6 @@ This lets you use a Dual Shock 3/4 or an Xbox One controller with your Sega Satu
 
 
 
- ##### What is new (26/01/18)
-  - Added support for the Xbox One controller.
-  - Added support for the Dual Shock 3 via bluetooth(previously it was only USB).
-
-
-
 #### How it works
 
 This uses an Arduino and a USB shield to emulate the Sega Saturn controller, enabling you to use a Dual Shock 3/4 or Xbox One controller, or with a little editing to the source code, just about any controller that is compatible with the USB shield library.
@@ -30,6 +24,13 @@ Being that the Saturn controller has six face buttons and the Dual Shock  and Xb
 
 N.B. An external power source is needed for the Aruduino to power the Xbox One controller.
 
+#### What's Needed
+
+ - Arduino(I used the Arduino UNO rev 3)
+ - USB Shield
+ - Compatible bluetooth dongle(or you can use a usb cable)
+ - Playstation 3/4 Dual Shock controller or Xbox One controller
+ - Sega Saturn controller cable to connect the controller port to the Arduino
 
 
 #### Putting it together
