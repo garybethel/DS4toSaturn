@@ -436,8 +436,8 @@ void emulateAnalogController(){
 		/*TRIANGLE*/if(PS3.getButtonPress(TRIANGLE)){DATA2_1 &= B00001101;}/*TRIANGLE*/
 		/*SQUARE*/if(PS3.getButtonPress(SQUARE)){DATA2_1 &= B00001011;}/*SQUARE*/
 
-		/*R1*/if(PS3.getButtonPress(R1)){DATA2_1 &= B00000111;}/*R1*/
-		/*L1*/if(PS3.getButtonPress(L1)){DATA2_2 &= B00000111;}/*L1*/
+		/*R1*/if(PS3.getButtonPress(R1)){DATA1_2 &= B00001101;}/*R1*/
+		/*L1*/if(PS3.getButtonPress(L1)){DATA2_1 &= B00001110;}/*L1*/
 		
 		//Data3
 		analogReading = PS3.getAnalogHat(LeftHatX);

@@ -219,10 +219,10 @@ void emulateDigitalController(){
 		//If the X button pressed
 		if(Xbox.getButtonPress(X)){DATA2_1 &= B00001011;}
 		//If the Right trigger button pressed
-		if(Xbox.getButtonPress(R1)){DATA2_1 &= B00000111;}
+		if(Xbox.getButtonPress(R1)){DATA1_2 &= B00001101;}
 		
 		//If the Left trigger button pressed
-		if(Xbox.getButtonPress(L1)){DATA2_2 &= B00000111;}
+		if(Xbox.getButtonPress(L1)){DATA2_1 &= B00001110;}
 		
 		
 		int16_t analogReading;
@@ -439,10 +439,10 @@ void emulateAnalogController(){
 		//If the X button pressed
 		if(Xbox.getButtonPress(X)){DATA2_1 &= B00001011;}
 		//If the Right trigger button pressed
-		if(Xbox.getButtonPress(R1)){DATA2_1 &= B00000111;}
+		if(Xbox.getButtonPress(R1)){DATA1_2 &= B00001101;}
 		
 		//If the Left trigger button pressed
-		if(Xbox.getButtonPress(L1)){DATA2_2 &= B00000111;}
+		if(Xbox.getButtonPress(L1)){DATA2_1 &= B00001110;}
 			
 		//Data3
 		analogReading = Xbox.getAnalogHat(LeftHatX);
