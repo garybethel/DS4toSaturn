@@ -8,14 +8,14 @@
  
 
 #### What it is
-This lets you use a Dual Shock 3/4 or an Xbox One controller with your Sega Saturn.
+This lets you use a Dual Shock 3/4 or an Xbox One controller with your Sega Saturn either as an analog/digital controller or as the Twin Stick controller.
 
 
 
 #### How it works
 
 This uses an Arduino and a USB shield to emulate the Sega Saturn controller, enabling you to use a Dual Shock 3/4 or Xbox One controller, or with a little editing to the source code, just about any controller that is compatible with the USB shield library.
-You can toggle between analog and digital using the Options button on the DS4, Select on the DS3 and Menu button on the Xbox One. When the DS4 light is green it is set to analog, blue is digital and Magenta means the stick can be used digitally. The light would be red for 30 seconds on start-up if the battery is below 14% of its full charge.
+You can toggle between analog, digital or Twin Stick mode using the Options button on the DS4, Select on the DS3 or Menu button on the Xbox One. When the DS4 light is green it is set to analog, blue is digital and magenta is Twin Stick. The light would be red for 30 seconds on start-up if the battery is below 14% of its full charge for the DS4.
 
 There is of course no rumble support because the Saturn never supported rumble, but rudimentary support can be added eg. Say you are playing Quake you can add the vibrate code to the button mapped to the gun trigger to simulate recoil for that specific game. The button will always vibrate the controller though if pressed while not in game.
 
@@ -25,7 +25,7 @@ N.B. An external power source is needed for the Arduinos to power the Xbox One c
 
 #### What's Needed
 
- - Arduino(I used the Arduino UNO rev 3)
+ - Arduino
  - USB Shield
  - Compatible bluetooth dongle(or you can use a usb cable)
  - Playstation 3/4 Dual Shock controller or Xbox One controller
@@ -50,7 +50,7 @@ N.B. An external power source is needed for the Arduinos to power the Xbox One c
 
  - Connect your shield and plug in your bluetooth dongle. Compile and flash your Arduino with the source code from here(don't forget to include the USB shield library).
  - Power on the Saturn and now plug the controller cable with the Arduino into the Saturn port.
- - Pair the controller with the Arduino.
+ - If you are using BlueTooth Pair the controller with the Arduino. In the most convoluted manner, I have made it that once the controller is paired With the adapter it stores the number 23 in the arduino storage and looks for this number upon start up each following time. If it is found it will not re-pair the controller but simply connect to it. If you need to pair the controller again change the value of "pair_num" to something other than 23. The same functionality could be added with a button connected to once of the aruduino pins. This is however only for the Dual Shock 4 and XboxOne controllers. The Dual Shock 3 controller doesn't seem to store the fact that is was paired previously, at least it is not exposed in the arduino shield library.
 
  ##### Warning
  If powering the Arduino from an external source make sure the Saturn is on before supplying power to the Arduino. You risk damaging your Saturn otherwise.
@@ -63,9 +63,6 @@ There is some protection against this but response time can be as slow as 650us.
 Some of the code used here was built upon the previous work and help of user RDC @ [NFGgames.com](http://nfggames.com/forum2/index.php?topic=5055.msg33242#msg33242) Major props to him!!
 Some minor code used from the USB Host Shield Library.
 
-
- ##### License
-This is released under the GNU General Public License.
 
 ##### Contact info
 I can be contacted at garybethelsgit@digitaltakesroot.com

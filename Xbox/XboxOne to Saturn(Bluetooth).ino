@@ -1,20 +1,15 @@
-#include <PS4BT.h>
+#include <XBOXONESBT.h>
 #include <usbhub.h>
-#include <EEPROM.h>
-#include <usbhid.h>
+
 #include <SPI.h>
 
-
 USB Usb;
-//USBHub Hub1(&Usb); // For dongle with an included hub
-BTD Btd(&Usb); // Bluetooth instance
-PS4BT PS4(&Btd);	
-
-USBHub Hub(&Usb);
+//USBHub Hub1(&Usb); // Some dongles have a hub inside
+BTD Btd(&Usb); // You have to create the Bluetooth Dongle instance like so
 
 
-/*DEADZONE*/#define dead_zone 10//  Dead area of analog stick
-#define analog_digital_dead_zone 18
+/*DEADZONE*/#define dead_zone 990//  Dead area of analog stick
+#define analog_digital_dead_zone 1486
 
 #define pin_In_S0 3 //th
 #define pin_In_S1 4 //tr
@@ -24,7 +19,7 @@ USBHub Hub(&Usb);
 #define pin_Out_Y3 A3
 #define pin_ACK_Y4 A4 //ack line
 
-char pin_Array[4]{A0,A1,A2,A3};
+char pin_array[4]{A0,A1,A2,A3};
 
 uint8_t mode_selector = 0;  //0 is digital mode 1 is analog
 uint8_t storage_address = 0;
@@ -35,16 +30,18 @@ bool battery_status = false;
 long battery_timer_start;
 bool retain_trigger_position = false;
 
-uint8_t controller_data[14]{};
+uint8_t char controller_data[14]{};
 
 
 void setup() {
 	Serial.begin(115200);
+    	//Serial.println(EEPROM.read(storage_address));
     
-    //Pair your Dual Shock controller the usual way by holding the PS button plus the share button
+    // hold down the sync and Xbox button together. The lights will blink in quick succession to indicate it is syncing
+	
     if(EEPROM.read(storage_address) != pair_num){
-    	PS4BT PS4(&Btd, PAIR); //this creates instance of the PS4BT class
-    	controller_paired=false;
+    	XBOXONESBT Xbox(&Btd, PAIR);
+    	controller_paired = false;
     	Serial.println("not paired");
     }
 
@@ -81,37 +78,31 @@ void setup() {
 
  	Usb.Task();
  
-	if (PS4.connected()) {
+	if (Xbox.XboxOneConnected) {
 		
 		checkBatteryStatus();
 		//Changes the controller from Digital to Analog
-		if (PS4.getButtonClick(OPTIONS)){
-			if(mode_selector == 0){
-				mode_selector = 1; //change state to now operating in analog mode
-				Serial.print(F("\r\nController switched to Analog"));
+		if (Xbox.XboxOneConnected) {
+			
+			//Changes the controller from Digital to Analog
+			if (Xbox.getButtonClick(MENU)){
+				if(mode_Selector == 0){
+					mode_Selector = 1; //change state to now operating in analog mode
+					Serial.print(F("\r\nController switched to Analog"));
+				}
+				else{
+					mode_Selector = 0; //change state to now operating in digital mode
+					Serial.print(F("\r\nController switched to Digital"));
+				}
 			}
-			else if(mode_selector == 1){
-				mode_selector = 2; //change state to now operating in Twin Stick mode
-				Serial.print(F("\r\nController switched to Twin Sticks"));
+			if(mode_Selector == 0){
+				emulateDigitalController(); 
 			}
-			else{
-				mode_selector = 0; //change state to now operating in digital mode
-				Serial.print(F("\r\nController switched to Digital"));
+			else if(mode_Selector == 1) {
+				emulateAnalogController();
 			}
 		}
 		
-		if(mode_selector == 0){
-			emulateDigitalController(); 
-			setLedColor(); //led would change to blue
-		}
-		else if(mode_selector == 1) {
-			emulateAnalogController();
-			setLedColor(); //led would change to green
-		}
-		else{
-			emulateDigitalController();//With functional sticks
-			setLedColor(); //led would change to magenta
-		}
 		if(!controller_paired){
 			if(EEPROM.read(storage_address) != pair_num){
 				EEPROM.write(storage_address, pair_num);
@@ -125,18 +116,16 @@ void setup() {
 	}
  }
 
-
 void emulateDigitalController(){
 	
 ////////Handshake////////
 	//we now start communication with the saturn
 	// Wait for the Saturn to select controller
 	if(readS0() == 0){  //s1-tr, s0-th
-	
 		delayMicroseconds(40);
 		//waiting for the saturn
 		while(readS1() == 1 && readS0() == 0){}
-		
+
 		//0000 = Digital  // 0001 = Analog
 		//pulled low to 0000 to id itself as a digital controller
 		sendToController(B00000000);
@@ -201,107 +190,108 @@ void emulateDigitalController(){
 		changeACKState();
 		
 		/// END THIRD BYTE
-		// Wait for the Saturn to deselect controller	
+		// Wait for the Saturn to deselect controller
 	
-		//if(PS4.connected()){
+		//if(Xbox.connected()){
 			DefaultControllerData();
 			
-			uint8_t analogReading;
+			int16_t analogReading;
 			
 			///Twin stick instructions
 			if(mode_selector == 2){
 				
-				if (PS4.getButtonPress(PS)){controller_data[1] &= B00000111;}
+				if (Xbox.getButtonPress(PS)){controller_data[1] &= B00000111;}
 				
-				analogReading = PS4.getAnalogHat(LeftHatX);
-				if(analogReading >= (127 + analog_digital_dead_zone) || analogReading <= (127 - analog_digital_dead_zone)) {
+				analogReading = Xbox.getAnalogHat(LeftHatX);
+				if(analogReading >= (7500 + analog_digital_dead_zone) || analogReading <= (-7500 - analog_digital_dead_zone)) {
 					//Right
-					if(analogReading >= 127 + analog_digital_dead_zone){controller_data[0] &= B00000111;}
+					if(analogReading >= 7500 + analog_digital_dead_zone){controller_data[0] &= B00000111;}
 					//Left
-					if(analogReading <= 127 - analog_digital_dead_zone){controller_data[0] &= B00001011;}
+					if(analogReading >= -7500 - analog_digital_dead_zone){controller_data[0] &= B00001011;}
 				}
 				
-				analogReading = PS4.getAnalogHat(LeftHatY);
-				if(analogReading >= (127 + analog_digital_dead_zone) || analogReading <= (127 - analog_digital_dead_zone)) {
+				analogReading = Xbox.getAnalogHat(LeftHatY);
+				if(analogReading >= (7500 + analog_digital_dead_zone) || analogReading <= (-7500 - analog_digital_dead_zone)) {
 					//Up
-					if(analogReading <= 127 - analog_digital_dead_zone){controller_data[0] &= B00001110;}
+					if(analogReading <= -7500 - analog_digital_dead_zone){controller_data[0] &= B00001110;}
 					//Down
-					if(analogReading >= 127 + analog_digital_dead_zone){controller_data[0] &= B00001101;}
+					if(analogReading <= 7500 + analog_digital_dead_zone){controller_data[0] &= B00001101;}
 				}
 				
 				////////////////////////////////////
-				analogReading = PS4.getAnalogHat(RightHatX);
-				if(analogReading >= (127 + analog_digital_dead_zone) || analogReading <= (127 - analog_digital_dead_zone)) {
+				analogReading = Xbox.getAnalogHat(RightHatX);
+				if(analogReading >= (7500 + analog_digital_dead_zone) || analogReading <= (-7500 - analog_digital_dead_zone)) {
 					//Z for right
-					if(analogReading >= 127 + analog_digital_dead_zone){controller_data[2] &= B00001110;}
+					if(analogReading >= 7500 + analog_digital_dead_zone){controller_data[2] &= B00001110;}
 					//X for left
-					if(analogReading <= 127 - analog_digital_dead_zone){controller_data[2] &= B00001011;}
+					if(analogReading >= -7500 - analog_digital_dead_zone){controller_data[2] &= B00001011;}
 				}
 				
-				analogReading = PS4.getAnalogHat(RightHatY);
-				if(analogReading >= (127 + analog_digital_dead_zone) || analogReading <= (127 - analog_digital_dead_zone)) {
+				analogReading = map(Xbox.getAnalogHat(RightHatY), -32767, 32767, 0, 255);
+				if(analogReading >= (7500 + analog_digital_dead_zone) || analogReading <= (-7500 - analog_digital_dead_zone)) {
 					//Y for up
-					if(analogReading <= 127 - analog_digital_dead_zone){controller_data[2] &= B00001101;}
+					if(analogReading <= -7500 - analog_digital_dead_zone){controller_data[2] &= B00001101;}
 					//B for down
-					if(analogReading >= 127 + analog_digital_dead_zone){controller_data[1] &= B00001110;}
+					if(analogReading <= 7500 + analog_digital_dead_zone){controller_data[1] &= B00001110;}
 				}
 				//C right dash button
-				if(PS4.getAnalogButton(R2) >0) {controller_data[1] &= B00001101;}
+				if(Xbox.getAnalogButton(R2) >0) {controller_data[1] &= B00001101;}
 				//R Left dash button
-				if(PS4.getAnalogButton(L2) >0) {controller_data[2] &= B00000111;}
+				if(Xbox.getAnalogButton(L2) >0) {controller_data[2] &= B00000111;}
 				//A for right side weapons
-				if(PS4.getButtonPress(R1)) {controller_data[1] &= B00001011;}
+				if(Xbox.getButtonPress(R1)) {controller_data[1] &= B00001011;}
 					
 				//L left side weapons
-				if(PS4.getButtonPress(L1)) {controller_data[3] &= B00000111;}
+				if(Xbox.getButtonPress(L1)) {controller_data[3] &= B00000111;}
 				
 			}//Digital controller 
 			else{
 				
 				//If the Up button pressed
-				if(PS4.getButtonPress(UP)){controller_data[0] &= B00001110;}
+				if(Xbox.getButtonPress(UP)){controller_data[0] &= B00001110;}
 				//If the Down button pressed
-				if(PS4.getButtonPress(DOWN)){controller_data[0] &= B00001101;}
+				if(Xbox.getButtonPress(DOWN)){controller_data[0] &= B00001101;}
 				//If the Left button pressed
-				if(PS4.getButtonPress(LEFT)){controller_data[0] &= B00001011;}
+				if(Xbox.getButtonPress(LEFT)){controller_data[0] &= B00001011;}
 				//If the Right button pressed
-				if(PS4.getButtonPress(RIGHT)){controller_data[0] &=B00000111;}
+				if(Xbox.getButtonPress(RIGHT)){controller_data[0] &=B00000111;}
 				
-				/*CIRCLE*/if(PS4.getButtonPress(CIRCLE)){controller_data[1] &= B00001110;}/*CIRCLE*/
-				/*R3*/if(PS4.getButtonPress(R3)){/**/}/*R3*/
-				/*CROSS*/if(PS4.getButtonPress(CROSS)){controller_data[1] &= B00001011;}/*CROSS*/
+				/*CIRCLE*/if(Xbox.getButtonPress(B)){controller_data[1] &= B00001110;}/*CIRCLE*/
+				/*R3*/if(Xbox.getButtonPress(R3)){/**/}/*R3*/
+				/*CROSS*/if(Xbox.getButtonPress(A)){controller_data[1] &= B00001011;}/*CROSS*/
 				
 				//If the Start button pressed
-				if (PS4.getButtonPress(PS)){controller_data[1] &= B00000111;}
+				if (Xbox.getButtonPress(XBOX)){controller_data[1] &= B00000111;}
 				
-				/*L3*/if(PS4.getButtonPress(L3)){/**/}/*L3*/
-				/*TRIANGLE*/if(PS4.getButtonPress(TRIANGLE)){controller_data[2] &= B00001101;}/*TRIANGLE*/
-				/*SQUARE*/if(PS4.getButtonPress(SQUARE)){controller_data[2] &= B00001011;}/*SQUARE*/
-				/*R1*/if(PS4.getButtonPress(R1)){controller_data[1] &= B00001101;}/*R1*/
-				/*L1*/if(PS4.getButtonPress(L1)){controller_data[2] &= B00001110;}/*L1*/
+				/*L3*/if(Xbox.getButtonPress(L3)){/**/}/*L3*/
+				/*TRIANGLE*/if(Xbox.getButtonPress(Y)){controller_data[2] &= B00001101;}/*TRIANGLE*/
+				/*SQUARE*/if(Xbox.getButtonPress(X)){controller_data[2] &= B00001011;}/*SQUARE*/
+				/*R1*/if(Xbox.getButtonPress(R1)){controller_data[1] &= B00001101;}/*R1*/
+				/*L1*/if(Xbox.getButtonPress(L1)){controller_data[2] &= B00001110;}/*L1*/
 				
-				if(PS4.getAnalogButton(R2) >0) {controller_data[2] &= B00000111;}
-				if(PS4.getAnalogButton(L2) >0) {controller_data[3] &= B00000111;}
+				if(Xbox.getAnalogButton(R2) >0) {controller_data[2] &= B00000111;}
+				if(Xbox.getAnalogButton(L2) >0) {controller_data[3] &= B00000111;}
 				
 
 				////////stick function assignment 
-				analogReading = PS4.getAnalogHat(LeftHatX);
-				if(analogReading >= (127 + analog_digital_dead_zone) || analogReading <= (127 - analog_digital_dead_zone)) {
+				analogReading = Xbox.getAnalogHat(LeftHatX);
+				if(analogReading >= (7500+analog_digital_dead_zone) || analogReading <= (-7500 - analog_digital_dead_zone)) {
 					//Right
-					if(analogReading >= 127 + analog_digital_dead_zone){controller_data[0] &= B00000111;}
+					if(analogReading >= 7500 + analog_digital_dead_zone){controller_data[0] &= B00000111;}
 					//Left
-					if(analogReading <= 127 - analog_digital_dead_zone){controller_data[0] &= B00001011;}
+					if(analogReading <= -7500 - analog_digital_dead_zone){controller_data[0] &= B00001011;}
 				}
-				analogReading = PS4.getAnalogHat(LeftHatY);
-				if(analogReading >= (127 + analog_digital_dead_zone) || analogReading <= (127 - analog_digital_dead_zone)) {
+
+				analogReading = map(Xbox.getAnalogHat(LeftHatY), -32767, 32767, 0, 255);
+				if(analogReading >= (7500+analog_digital_dead_zone) || analogReading <= (-7500 - analog_digital_dead_zone)) {
 					//Up
-					if(analogReading <= 127 - analog_digital_dead_zone){controller_data[0] &= B00001110;}
+					if(analogReading <= -7500 - analog_digital_dead_zone){controller_data[0] &= B00001110;}
 					//Down
-					if(analogReading >= 127 + analog_digital_dead_zone){controller_data[0] &= B00001101;}
+					if(analogReading >= 7500 + analog_digital_dead_zone){controller_data[0] &= B00001101;}
 				}
 				
 			}
-			//delayMicroseconds(18);//added since we need to be at 104us wait average..........out of spec but minused 10us from the original time 
+			
 		//}
 		//else{
 			while(readS0() == 0){}
@@ -309,7 +299,7 @@ void emulateDigitalController(){
 	}
 	
 }
-//this entire function takes 650 us once controller s0 goes low
+
 void emulateAnalogController(){
 
 	////////Handshake////////
@@ -379,8 +369,8 @@ void emulateAnalogController(){
 		sendToController(controller_data[4]);
 		changeACKState();
 		// Wait for Saturn to request second half of Data3
-		while(readS0() == 0 && readS1() == 0){}
-		
+		while(readS0() == 0 && readS1() == 0){
+		}
 		sendToController(controller_data[5]);
 		changeACKState();
 
@@ -459,66 +449,69 @@ void emulateAnalogController(){
 		
 		
 		//If the Up button pressed
-		if(PS4.getButtonPress(UP)){controller_data[0] &= B00001110;}
+		if(Xbox.getButtonPress(UP)){controller_data[0] &= B00001110;}
 		//If the Down button pressed
-		if(PS4.getButtonPress(DOWN)){controller_data[0] &= B00001101;}
+		if(Xbox.getButtonPress(DOWN)){controller_data[0] &= B00001101;}
 		//If the Left button pressed
-		if(PS4.getButtonPress(LEFT)){controller_data[0] &= B00001011;}
+		if(Xbox.getButtonPress(LEFT)){controller_data[0] &= B00001011;}
 		//If the Right button pressed
-		if(PS4.getButtonPress(RIGHT)){controller_data[0] &=B00000111;}
+		if(Xbox.getButtonPress(RIGHT)){controller_data[0] &=B00000111;}
 		
-		/*CIRCLE*/if(PS4.getButtonPress(CIRCLE)){controller_data[1] &= B00001110;}/*CIRCLE*/
-		/*R3*/if(PS4.getButtonPress(R3)){/**/}/*R3*/
-		/*CROSS*/if(PS4.getButtonPress(CROSS)){controller_data[1] &= B00001011;}/*CROSS*/
+		/*CIRCLE*/if(Xbox.getButtonPress(B)){controller_data[1] &= B00001110;}/*CIRCLE*/
+		/*R3*/if(Xbox.getButtonPress(R3)){/**/}/*R3*/
+		/*CROSS*/if(Xbox.getButtonPress(A)){controller_data[1] &= B00001011;}/*CROSS*/
 		
 		//If the Start button pressed
-		if (PS4.getButtonPress(PS)){controller_data[1] &= B00000111;}
+		if (Xbox.getButtonPress(XBOX)){controller_data[1] &= B00000111;}
 		
-		/*L3*/if(PS4.getButtonPress(L3)){/**/}/*L3*/
-		/*TRIANGLE*/if(PS4.getButtonPress(TRIANGLE)){controller_data[2] &= B00001101;}/*TRIANGLE*/
-		/*SQUARE*/if(PS4.getButtonPress(SQUARE)){controller_data[2] &= B00001011;}/*SQUARE*/
+		/*L3*/if(Xbox.getButtonPress(L3)){/**/}/*L3*/
+		/*TRIANGLE*/if(Xbox.getButtonPress(Y)){controller_data[2] &= B00001101;}/*TRIANGLE*/
+		/*SQUARE*/if(Xbox.getButtonPress(X)){controller_data[2] &= B00001011;}/*SQUARE*/
 
-		/*R1*/if(PS4.getButtonPress(R1)){controller_data[1] &= B00001101;}/*R1*/  //C
-		/*L1*/if(PS4.getButtonPress(L1)){controller_data[2] &= B00001110;}/*L1*/ //Z
+		/*R1*/if(Xbox.getButtonPress(R1)){controller_data[1] &= B00001101;}/*R1*/  //C
+		/*L1*/if(Xbox.getButtonPress(L1)){controller_data[2] &= B00001110;}/*L1*/ //Z
 		
 		//Data3
-		analogReading = PS4.getAnalogHat(LeftHatX);
-		if(analogReading >= (127 + dead_zone) || analogReading <= (127 - dead_zone)) {
+		analogReading = Xbox.getAnalogHat(LeftHatX);
+		if(analogReading > (7500 + dead_zone) || analogReading < (-7500 - dead_zone)) {
+			analogReading = map(analogReading, -32767, 32767, 0, 255);//we subtract 255 because we need to reverse the reading
 			getBinary(analogReading,controller_data[4],controller_data[5]);
 		}
+		
 		//Data4
-		analogReading = PS4.getAnalogHat(LeftHatY);
-		if(analogReading >= (127 + dead_zone) || analogReading <= (127 - dead_zone)) {
+		analogReading = Xbox.getAnalogHat(LeftHatY);
+		if(analogReading > (7500 + dead_zone) || analogReading < (-7500 - dead_zone)) {
+			analogReading = map(analogReading, -32767, 32767, 0, 255);//we subtract 255 because we need to reverse the reading
 			getBinary(analogReading,controller_data[6],controller_data[7]);
 		}
 		//Data5
-		analogReading = PS4.getAnalogButton(L2);
+		analogReading = getAnalogButton(L2);
 		if(analogReading > 0) {
-			adjusted_AnalogReading = (255 - analogReading);
+			adjusted_AnalogReading = 255 - map(analogReading, 0, 1023, 0, 255);
 			getBinary(adjusted_AnalogReading,controller_data[8],controller_data[9]);
 			
 			//in the event the controller uses digital triggers in analog mode
-			if(analogReading > 144 || (retain_trigger_position && analogReading > 86)){
+			if(analogReading > 577 || (retain_trigger_position && analogReading > 345)){
 				controller_data[3] &= B00000111;
 				retain_trigger_position = true;
 			}
-			else if(analogReading < 86) {
+			else if(analogReading < 345) {
 				retain_trigger_position = false;
 			}
 		}
 		
 		//Data6
-		analogReading = PS4.getAnalogButton(R2);
+		analogReading = map(Xbox.getAnalogButton(R2), 0, 1023, 0, 255);
 		if(analogReading > 0) {
-			adjusted_AnalogReading = (255 - analogReading);
+			adjusted_AnalogReading = 255 - map(analogReading, 0, 1023, 0, 255);
 			getBinary(adjusted_AnalogReading,controller_data[10],controller_data[11]);
 			
 			//in the event the controller uses digital triggers in analog mode
-			if(analogReading > 144 || (retain_trigger_position && analogReading > 86)){
+			if(analogReading > 577 || (retain_trigger_position && analogReading > 345)){
 				controller_data[2] &= B00000111;
 				retain_trigger_position = true;
 			}
-			else if(analogReading < 86) {
+			else if(analogReading < 345) {
 				retain_trigger_position = false;
 			}
 		}
@@ -563,40 +556,25 @@ void sendToController(char in){
 	for (int i = 0; i < 4; i++){
 		int pin_state = (in >> i) & 1;
 
-      digitalWrite(pin_Array[i], pin_state);
+      digitalWrite(pin_array[i], pin_state);
         
 	}
-}
-
-//checks the battery status and sets led red for 1/2 a minute if battery is less than 14% of its full charge
-void checkBatteryStatus(){
-    if(battery_status == false){
-        if(PS4.getBatteryLevel() < 2){
-            long battery_timer_elapsed = millis() - battery_timer_start;
-            if(battery_timer_elapsed >= 30000){
-                battery_status = true;
-            }
-        }
-        else{
-            battery_status = true;
-        }
-    }
 }
 
 
 void setLedColor(){
 
 	if(battery_status == false){
-	    PS4.setLed(Red); //battery weak
+	    Xbox.setLed(Red); //battery weak
 	}
 	else if(mode_selector == 0){
-	    PS4.setLed(Blue); //digital mode
+	    Xbox.setLed(Blue); //digital mode
 	}
 	else if(mode_selector == 1){
-		PS4.setLed(Green); //analog mode
+		Xbox.setLed(Green); //analog mode
 	}
 	else if(mode_selector == 2){
-	    PS4.setLed(255,0,255);// Twin Stick mode
+	    Xbox.setLed(255,0,255);// Twin Stick mode
 	}
 
 }
