@@ -7,11 +7,9 @@
 
 
 USB Usb;
-//USBHub Hub1(&Usb); // For dongle with an included hub
-BTD Btd(&Usb); // You have to create the Bluetooth Dongle instance like so
-/* You can create the instance of the class in two ways */
-PS3BT PS3(&Btd); // This will just create the instance
-//PS3BT PS3(&Btd, 0x00, 0x15, 0x83, 0x3D, 0x0A, 0x57); // This will also store the bluetooth address - this can be obtained from the dongle when running the sketch
+BTD Btd(&Usb); 
+PS3BT PS3(&Btd); 
+
 
 
 
@@ -41,14 +39,6 @@ uint8_t controller_data[14]{};
 
 void setup() {
 	Serial.begin(115200);
-    	//Serial.println(EEPROM.read(storage_address));
-    
-    //Pair your Dual Shock controller the usual way by holding the PS button plus the share button
-    if(EEPROM.read(storage_address) != pair_num){
-    	PS4BT PS4(&Btd, PAIR); //this creates instance of the PS4BT class
-    	controller_paired = false;
-    	Serial.println("not paired");
-    }
 
     DefaultControllerdata();
 
@@ -113,12 +103,7 @@ void setup() {
 			emulateDigitalController();//With functional sticks
 			setLed(); //led would change to magenta
 		}
-		if(!controller_paired){
-			if(EEPROM.read(storage_address) != pair_num){
-				EEPROM.write(storage_address, pair_num);
-				controller_paired = true;
-			}
-		}
+
 	}
 	else{
 		sendDataStateHigh(); //if no PS controller is attached we send the data lines to high emulating no controller for the Saturn
